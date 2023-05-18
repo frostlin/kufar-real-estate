@@ -72,7 +72,7 @@ def update_db(estates):
                     update_value('estate', 'price_usd', str(estate.price_usd), 'url', estate.url)
                     update_value('estate', 'price_byn', str(estate.price_byn), 'url', estate.url)
                     update_value('estate', 'is_changed', 'true', 'url', estate.url) 
-                    #update_value('user_estate', 'notified_changed', 'true', 'url', estate.url) 
+                    update_value('user_estate', 'notified_changed', 'true', 'url', estate.url) 
                 break
             except Exception as e:
                 print("ERROR\nFailed on estate '{}, attempt {}/10'\n{}\nWaiting 4 second and retring...\n".format(estate.url, attempt_counter, e))
