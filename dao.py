@@ -7,7 +7,6 @@ from datetime import datetime
 from collections import namedtuple
 import traceback
 
-from dao import *
 from dbenv import *
 from object.estate import Estate
 from object.search_url import SearchUrl
@@ -18,11 +17,25 @@ from object.search_url import SearchUrl
 
 sql_log = open("connect.log", "a")
 connection = psycopg2.connect(host=postgres_address, port=port, user=postgres_user, password=postgres_user_password, dbname=db_name_dev)
-
 ESTATE_SELECT_VALUES = "SELECT url, image_url, price_usd, price_usd_old, price_byn, room_count, area, address FROM estate"
-
 EstateStatus = namedtuple("EstateStatus", "new idle changed sold archived")
 ESTATE_STATUS = EstateStatus(0, 1, 2, 3, 4)
+
+
+def update_db(estates):
+    sql_log.write(f"{str(datetime.now())} Starting db update...")
+
+    estates_urls_in_db = [estate.url for estate in get_sold_estates_for_search_url(estates[0].search_url.url)]
+    sold_estates_urls = list(set(estates_urls_in_db) - set([estate.url for estate in estates]))
+    for url in sold_estates_urls:
+        update_value('user_estate', 'notification_status', str(ESTATE_STATUS.sold), 'url', url)
+
+    for estate in estates:
+        current_price = get_current_price(estate.url)
+        if not current_price:
+            add_estate(estate)
+        elif current_price[0] != estate.price_usd:
+            update_estate(estate, current_price[0])
 
 
 def get_estates_for_user_notifications(user_id: int, search_url: str, status:int): 
@@ -52,37 +65,6 @@ def get_sold_estates_for_search_url(url: str):
     return estates
 
 
-def update_db(estates):
-    sql_log.write(f"{str(datetime.now())} Starting db update...")
-
-    estates_urls_in_db = [estate.url for estate in get_sold_estates_for_search_url(estates[0].search_url.url)]
-    sold_estates_urls = list(set(estates_urls_in_db) - set([estate.url for estate in estates]))
-    for url in sold_estates_urls:
-        update_value('estate', 'is_sold', 'true', 'url', url)
-        update_value('estate', 'is_changed', 'true', 'url', url)
-
-    for estate in estates:
-        for attempt_counter in range(0, 11):
-            try:
-                if not check_if_value_exists('estate', 'url', estate.url):
-                    insert_value('estate', ('url','image_url','search_url','price_usd','price_usd_old','price_byn','room_count','area','address'), (estate.url, estate.image_url, estate.search_url.url, estate.price_usd, estate.price_usd_old, estate.price_byn, estate.room_count, estate.area, estate.address))
-                elif get_current_price(estate.url)[0] != estate.price_usd:
-                    print(f"changing {estate.url}")
-                    update_value('estate', 'price_usd_old', str(get_current_price(estate.url)[0]), 'url', estate.url)
-                    update_value('estate', 'price_usd', str(estate.price_usd), 'url', estate.url)
-                    update_value('estate', 'price_byn', str(estate.price_byn), 'url', estate.url)
-                    update_value('estate', 'is_changed', 'true', 'url', estate.url) 
-                    update_value('user_estate', 'notified_changed', 'true', 'url', estate.url) 
-                break
-            except Exception as e:
-                print("ERROR\nFailed on estate '{}, attempt {}/10'\n{}\nWaiting 4 second and retring...\n".format(estate.url, attempt_counter, e))
-                sql_log.write(str(datetime.now()) + " -- ERROR\nFailed on estate '{}'\n{}\nWaiting 4 second and retring...\n".format(estate.url, traceback.format_exc()))
-                time.sleep(4)
-                #connection = psycopg2.connect(host=postgres_address, user=postgres_user, password=postgres_user_password, dbname=db_name_dev
-                continue
-
-
-
 def get_current_price(url: str):
     return get_value('estate','price_usd','url',url) 
 
@@ -99,6 +81,22 @@ def add_search_url_for_user(user_id: int, search_url: SearchUrl):
     insert_value('search_url', ('url',), (search_url.url,))
     user_search_url_keys = (('user_id', user_id), ('url', search_url.url))
     insert_value('user_search_url', ('user_id','url','alias'), (user_id, *search_url), user_search_url_keys)
+
+def add_estate(estate: Estate): 
+    print(f"Adding new estate {estate.url}")
+    insert_value('estate', ('url','image_url','search_url','price_usd','price_usd_old','price_byn','room_count','area','address'), (estate.url, estate.image_url, estate.search_url.url, estate.price_usd, estate.price_usd_old, estate.price_byn, estate.room_count, estate.area, estate.address))
+    user_ids = get_values('user_search_url','user_id','url',estate.search_url.url)
+    for user_id in user_ids:
+        insert_value('user_estate', ('url','user_id'),(estate.url, user_id[0]))
+
+def update_estate(estate: Estate, current_price: float):
+    print(f"changing {estate.url}")
+    update_value('estate', 'price_usd_old', str(current_price), 'url', estate.url)
+    update_value('estate', 'price_usd', str(estate.price_usd), 'url', estate.url)
+    update_value('estate', 'price_byn', str(estate.price_byn), 'url', estate.url)
+    update_value('user_estate', 'notification_status', str(ESTATE_STATUS.changed), 'url', estate.url) 
+
+
 
 
 #---- shared
@@ -119,7 +117,7 @@ def insert_value(table:str, fields:tuple, values:tuple, keys: tuple = ()):
             break
     if not flag: return False
 
-    print("Inserting to '{}' fields '{}' key '{}'".format(table,', '.join(fields), values[0]))
+    #print("Inserting to '{}' fields '{}' key '{}'".format(table,', '.join(fields), values[0]))
     query = "INSERT INTO %s(%s) VALUES (" + ','.join(["%s"] * len(values)) + ")"
     cursor = connection.cursor()  
     #print(cursor.mogrify(query, (AsIs(table),AsIs(','.join(fields))) + values))
