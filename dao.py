@@ -72,6 +72,10 @@ def get_all_search_urls():
     return [url[0] for url in get_values('search_url','url')]
 
 
+def get_user_ids():
+    return [user_id[0] for user_id in get_values('tg_user','id')]
+
+
 def set_notification_status_archived(user_id: int, url:str): 
     update_value('user_estate', 'notification_status', str(ESTATE_STATUS.archived), {'url':url,'user_id':user_id})
 
