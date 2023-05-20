@@ -15,14 +15,14 @@ from object.search_url import SearchUrl
 # DIRE NEED FOR REFACTORING
 #
 
-sql_log = open("connect.log", "a")
+sql_log = open("log/connect.log", "a")
 connection = psycopg2.connect(host=postgres_address, port=port, user=postgres_user, password=postgres_user_password, dbname=db_name_dev)
-ESTATE_SELECT_VALUES = "SELECT url, image_url, price_usd, price_usd_old, price_byn, room_count, area, address FROM estate"
+ESTATE_SELECT_VALUES = "SELECT estate.url, image_url, price_usd, price_usd_old, price_byn, room_count, area, address FROM estate"
 EstateStatus = namedtuple("EstateStatus", "new idle changed sold archived")
 ESTATE_STATUS = EstateStatus(0, 1, 2, 3, 4)
 
 def update_db(estates):
-    sql_log.write(f"{str(datetime.now())} Starting db update...")
+    log_line("INF",f"Starting db update...")
 
     estates_urls_in_db = [estate.url for estate in get_sold_estates_for_search_url(estates[0].search_url.url)]
     sold_estates_urls = list(set(estates_urls_in_db) - set([estate.url for estate in estates]))
@@ -71,11 +71,14 @@ def get_current_price(url: str):
 def get_all_search_urls():
     return [url[0] for url in get_values('search_url','url')]
 
-def unflagNew(url:str): 
-    update_value('estate', 'is_new', 'false', 'url', url)          
 
-def unflagChanged(url:str):
-    update_value('estate', 'is_Changed', 'false', 'url', url)          
+def set_notification_status_archived(user_id: int, url:str): 
+    update_value('user_estate', 'notification_status', str(ESTATE_STATUS.archived), {'url':url,'user_id':user_id})
+
+
+def set_notification_status_idle(user_id: int, url:str):
+    update_value('user_estate', 'notification_status', str(ESTATE_STATUS.idle), {'url':url,'user_id':user_id})
+
 
 def add_search_url_for_user(user_id: int, search_url: SearchUrl):
     insert_value('search_url', ('url',), (search_url.url,))
@@ -115,7 +118,9 @@ def insert_value(table:str, fields:tuple, values:tuple, lookup_items: dict = {})
     if not lookup_items:
         lookup_items = {fields[0]:values[0]}
     if check_if_exists(table,lookup_items):
+        log_line("WRN", f"'{table}' with keys '{lookup_items}' already exists, skipping.....\n")
         return False
+    log_line("INF",f"Inserting to '{table}' fields '{', '.join(fields)}' with values'{values}' where '{lookup_items}'\n")
 
     query = "INSERT INTO %s(%s) VALUES (" + ','.join(["%s"] * len(values)) + ")"
     cursor = connection.cursor()  
@@ -148,6 +153,7 @@ def get_values(table:str, select_column:str,lookup_items: dict = {}):
 
 
 def update_value(table: str, field_to_change: str, value_to_change: str, lookup_items):
+    log_line("INF",f"Updating table '{table}' setting '{field_to_change}' to '{value_to_change}' where '{lookup_items}'")
     constructed_where = where_constructor(lookup_items)
     query = f"UPDATE %s SET %s = %s {constructed_where[0]}"
 
@@ -165,3 +171,7 @@ def where_constructor(lookup_items):
     god_why[::2] = fields 
     god_why[1::2] = values
     return ("WHERE {}".format(" AND ".join(["%s=%s"] * len(fields))), god_why)
+
+
+def log_line(type:str, line:str):
+    sql_log.write(f"{datetime.now()} -- [{type}] -- {line}\n")
