@@ -21,14 +21,13 @@ ESTATE_SELECT_VALUES = "SELECT url, image_url, price_usd, price_usd_old, price_b
 EstateStatus = namedtuple("EstateStatus", "new idle changed sold archived")
 ESTATE_STATUS = EstateStatus(0, 1, 2, 3, 4)
 
-
 def update_db(estates):
     sql_log.write(f"{str(datetime.now())} Starting db update...")
 
     estates_urls_in_db = [estate.url for estate in get_sold_estates_for_search_url(estates[0].search_url.url)]
     sold_estates_urls = list(set(estates_urls_in_db) - set([estate.url for estate in estates]))
     for url in sold_estates_urls:
-        update_value('user_estate', 'notification_status', str(ESTATE_STATUS.sold), 'url', url)
+        update_value('user_estate', 'notification_status', str(ESTATE_STATUS.sold), {'url':url})
 
     for estate in estates:
         current_price = get_current_price(estate.url)
@@ -66,7 +65,8 @@ def get_sold_estates_for_search_url(url: str):
 
 
 def get_current_price(url: str):
-    return get_value('estate','price_usd','url',url) 
+    return get_value('estate','price_usd',{'url':url}) 
+
 
 def get_all_search_urls():
     return [url[0] for url in get_values('search_url','url')]
@@ -79,75 +79,89 @@ def unflagChanged(url:str):
 
 def add_search_url_for_user(user_id: int, search_url: SearchUrl):
     insert_value('search_url', ('url',), (search_url.url,))
-    user_search_url_keys = (('user_id', user_id), ('url', search_url.url))
+    user_search_url_keys = {'user_id':user_id, 'url':search_url.url}
     insert_value('user_search_url', ('user_id','url','alias'), (user_id, *search_url), user_search_url_keys)
+
 
 def add_estate(estate: Estate): 
     print(f"Adding new estate {estate.url}")
     insert_value('estate', ('url','image_url','search_url','price_usd','price_usd_old','price_byn','room_count','area','address'), (estate.url, estate.image_url, estate.search_url.url, estate.price_usd, estate.price_usd_old, estate.price_byn, estate.room_count, estate.area, estate.address))
-    user_ids = get_values('user_search_url','user_id','url',estate.search_url.url)
+    user_ids = get_values('user_search_url','user_id',{'url':estate.search_url.url})
     for user_id in user_ids:
-        insert_value('user_estate', ('url','user_id'),(estate.url, user_id[0]))
+        keys_to_check = {'user_id':user_id[0], 'url':estate.url}
+        insert_value('user_estate', ('url','user_id'), (estate.url, user_id[0]), keys_to_check)
+
 
 def update_estate(estate: Estate, current_price: float):
     print(f"changing {estate.url}")
-    update_value('estate', 'price_usd_old', str(current_price), 'url', estate.url)
-    update_value('estate', 'price_usd', str(estate.price_usd), 'url', estate.url)
-    update_value('estate', 'price_byn', str(estate.price_byn), 'url', estate.url)
-    update_value('user_estate', 'notification_status', str(ESTATE_STATUS.changed), 'url', estate.url) 
+    update_value('estate', 'price_usd_old', str(current_price), {'url': estate.url})
+    update_value('estate', 'price_usd', str(estate.price_usd), {'url': estate.url})
+    update_value('estate', 'price_byn', str(estate.price_byn), {'url': estate.url})
+    update_value('user_estate', 'notification_status', str(ESTATE_STATUS.changed), {'url': estate.url}) 
 
 
 
 
 #---- shared
-def check_if_value_exists(table:str, field:str, value:str) -> bool:
+def check_if_exists(table:str, lookup_items) -> bool:
     cursor = connection.cursor()
-    query = "SELECT * FROM %s WHERE %s=%s"
-    cursor.execute(query, (AsIs(table),AsIs(field),value))
+    constructed_where= where_constructor(lookup_items)
+    query = f"SELECT * FROM %s {constructed_where[0]}" 
+    cursor.execute(query, (AsIs(table),*constructed_where[1]))
     return cursor.fetchone() is not None
 
-def insert_value(table:str, fields:tuple, values:tuple, keys: tuple = ()):
-    if not keys:
-        keys = ((fields[0], values[0]),)
-    flag = False
-    for key in keys:
-        if not check_if_value_exists(table, key[0], key[1]):
-            sql_log.write("{} with key '{}' already exists, skipping.....\n".format(table, key[0]))
-            flag = True
-            break
-    if not flag: return False
 
-    #print("Inserting to '{}' fields '{}' key '{}'".format(table,', '.join(fields), values[0]))
+def insert_value(table:str, fields:tuple, values:tuple, lookup_items: dict = {}):
+    if not lookup_items:
+        lookup_items = {fields[0]:values[0]}
+    if check_if_exists(table,lookup_items):
+        return False
+
     query = "INSERT INTO %s(%s) VALUES (" + ','.join(["%s"] * len(values)) + ")"
     cursor = connection.cursor()  
-    #print(cursor.mogrify(query, (AsIs(table),AsIs(','.join(fields))) + values))
     sql_log.write(str(datetime.now()) + " -- " + str(cursor.mogrify(query, (AsIs(table),AsIs(','.join(fields))) + values)) + "\n")
     cursor.execute(query,(AsIs(table),AsIs(','.join(fields))) + values) 
     connection.commit()
     cursor.close()
     return True
 
-def get_value(table:str, select_column:str, column:str = "", value:str = ""):
+
+def get_value(table:str, select_column:str, lookup_items: dict = {}):
+    constructed_where = where_constructor(lookup_items)
+    query = f"SELECT %s FROM %s {constructed_where[0]}"
+
     cursor = connection.cursor()
-    query = "SELECT %s FROM %s WHERE %s=%s" if column and value else "SELECT %s FROM %s"
-    #print(cursor.mogrify(query, (AsIs(select_column),AsIs(table),AsIs(column),value)))
-    cursor.execute(query, (AsIs(select_column),AsIs(table),AsIs(column),value))
+    cursor.execute(query, (AsIs(select_column),AsIs(table),*constructed_where[1]))
     return cursor.fetchone()
     
-def get_values(table:str, select_column:str, column:str = "", value:str = ""):
+
+def get_values(table:str, select_column:str,lookup_items: dict = {}):
     cursor = connection.cursor()
-    if column and value:
-        query = "SELECT %s FROM %s WHERE %s=%s"
-        cursor.execute(query, (AsIs(select_column),AsIs(table),AsIs(column),value))
+    if lookup_items:
+        constructed_where = where_constructor(lookup_items)
+        query = f"SELECT %s FROM %s {constructed_where[0]}"
+        cursor.execute(query, (AsIs(select_column),AsIs(table),*constructed_where[1]))
     else:
         query = "SELECT %s FROM %s"
         cursor.execute(query, (AsIs(select_column),AsIs(table)))
-
     return cursor.fetchall()
 
-def update_value(table: str, field_to_change: str, value_to_change: str, field_where: str, value_where: str):
+
+def update_value(table: str, field_to_change: str, value_to_change: str, lookup_items):
+    constructed_where = where_constructor(lookup_items)
+    query = f"UPDATE %s SET %s = %s {constructed_where[0]}"
+
     cursor = connection.cursor()
-    query = "UPDATE %s SET %s = %s WHERE %s = %s"
-    cursor.execute(query, (AsIs(table), AsIs(field_to_change), value_to_change, AsIs(field_where), value_where))
+    cursor.execute(query, (AsIs(table), AsIs(field_to_change), value_to_change,*constructed_where[1]))
     connection.commit()
     cursor.close()
+
+
+# wtf bruh
+def where_constructor(lookup_items):
+    fields = [AsIs(key) for key in lookup_items.keys()]
+    values = lookup_items.values()
+    god_why = [None]*(len(fields)+len(values))
+    god_why[::2] = fields 
+    god_why[1::2] = values
+    return ("WHERE {}".format(" AND ".join(["%s=%s"] * len(fields))), god_why)
