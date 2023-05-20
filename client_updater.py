@@ -2,7 +2,6 @@
 import requests 
 import sys
 import traceback
-from scrapper import get_estates,getPageCount
 from env import *
 from dao import *
 from object.estate import Estate
@@ -44,7 +43,7 @@ def send_updated(user_id: int, estates: list[Estate], url: SearchUrl):
     for estate in estates:
         try:
             send_photo(user_id, f"Цена на квартиру поменялась. {estate.price_usd_old}$ -> {estate.price_usd}$\n{repr(url)}", estate) 
-            unflagChanged(estate.url)
+            set_notification_status_idle(user_id, estate.url)
         except Exception as e: 
             send_message(user_id, f"произошла ошибка, сообщите @Frosltin: \n{e}\n{traceback.format_exc()}") 
             continue
@@ -54,7 +53,7 @@ def send_new(user_id:int, estates: list[Estate], url: SearchUrl):
     for estate in estates:
         try:
             send_photo(user_id, f"Новое объявление о продаже\n{repr(url)}", estate)
-            unflagNew(estate.url)
+            set_notification_status_idle(user_id, estate.url)
         except Exception as e: 
             send_message(user_id, f"произошла ошибка, сообщите @Frostlin: \n{e}\n{traceback.format_exc()}") 
             continue
@@ -63,7 +62,7 @@ def send_sold(user_id:int , estates: list[Estate], url: SearchUrl):
     for estate in estates:
         try:
             send_photo(user_id, f"Квартира продана или объявление снято:\n {repr(url)}", estate)
-            unflagChanged(estate.url)
+            set_notification_status_archived(user_id, estate.url)
         except Exception as e: 
             send_message(user_id, f"произошла ошибка, сообщите @Frostlin: \n{e}\n{traceback.format_exc()}") 
             continue
@@ -105,4 +104,4 @@ def for_testing():
         add_search_url(int(url[0]), url[1], url[2]) 
 
 if __name__ == "__main__":
-    for_testing()
+    main()
