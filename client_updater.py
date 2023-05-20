@@ -10,9 +10,11 @@ from object.search_url import SearchUrl
 # Define a few command handlers. These usually take the two arguments update and
 # context.
 
-recepients = (479073026,1232013749)
 def main():
-    update_user(recepients[0])
+    user_ids = get_user_ids()
+    for user_id in user_ids:
+        print(f"uptading user {user_id}")
+        update_user(user_id)
 
 def update_user(user_id: int):
     search_urls = get_search_urls_for_user(user_id)
