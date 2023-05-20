@@ -12,11 +12,12 @@ from datetime import datetime
 from object.estate import Estate
 from object.search_url import SearchUrl
 
-webscrapper_log = open("webscrapper.log", "a") 
+webscrapper_log = open("log/webscrapper.log", "a") 
 
 
 def get_estates(search_url: SearchUrl, page: int):   
-    response = requests.get(search_url.url + '&cursor=' + encodeBase64('{"t":"abs","f":true,"p":' + str(page) + '}'))
+    print(f"getting estates for {search_url.url}")
+    response = requests.get(search_url.url + '&cursor=' + encode_base64('{"t":"abs","f":true,"p":' + str(page) + '}'))
     webscrapper_log.write("page " + search_url.url + "\n")
     
     cards = SoupStrainer("div", {"class": re.compile("styles_cards__(?!wrapper).*")})
@@ -55,13 +56,14 @@ def get_estates(search_url: SearchUrl, page: int):
 
 
 
-def getPageCount(url):
+def get_page_count(url):
+    print('getting page count')
     response = requests.get(url)
     page_count = BeautifulSoup(response.text, 'lxml')
     return int(page_count.find("div", {"class": re.compile("styles_listings__total.*")}).find("span").text.split(' ')[1])//30+1
 
 
-def encodeBase64(message):
+def encode_base64(message):
     message_bytes = message.encode('ascii')
     base64_bytes = base64.b64encode(message_bytes)
     base64_message = base64_bytes.decode('ascii')   
