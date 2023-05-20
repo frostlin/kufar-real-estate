@@ -16,7 +16,6 @@ webscrapper_log = open("log/webscrapper.log", "a")
 
 
 def get_estates(search_url: SearchUrl, page: int):   
-    print(f"getting estates for {search_url.url}")
     response = requests.get(search_url.url + '&cursor=' + encode_base64('{"t":"abs","f":true,"p":' + str(page) + '}'))
     webscrapper_log.write("page " + search_url.url + "\n")
     
