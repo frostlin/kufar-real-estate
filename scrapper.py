@@ -4,6 +4,7 @@ import urllib.request
 from bs4 import BeautifulSoup
 from bs4 import SoupStrainer
 import re
+import os
 import time
 import cchardet
 import base64
@@ -12,7 +13,7 @@ from datetime import datetime
 from object.estate import Estate
 from object.search_url import SearchUrl
 
-webscrapper_log = open("log/webscrapper.log", "a") 
+webscrapper_log = open(f"{os.getcwd()}/log/webscrapper.log", "a")
 
 
 def get_estates(search_url: SearchUrl, page: int):   
@@ -30,6 +31,8 @@ def get_estates(search_url: SearchUrl, page: int):
 
             # skip adverised
             if "account/my_ads/published" in href:
+                continue
+            if "promotion_services" in href:
                 continue
             
             # get image from card or insert placeholder image
