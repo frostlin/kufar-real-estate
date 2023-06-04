@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import psycopg2
 import sys
+import os
 from psycopg2.extensions import AsIs
 import time
 from datetime import datetime
@@ -15,21 +16,21 @@ from object.search_url import SearchUrl
 # DIRE NEED FOR REFACTORING
 #
 
-sql_log = open("log/connect.log", "a")
+sql_log = open(f"{os.getcwd()}/log/connect.log", "a")
 connection = psycopg2.connect(host=postgres_address, port=port, user=postgres_user, password=postgres_user_password, dbname=db_name_dev)
 ESTATE_SELECT_VALUES = "SELECT estate.url, image_url, price_usd, price_usd_old, price_byn, room_count, area, address FROM estate"
 EstateStatus = namedtuple("EstateStatus", "new idle changed sold archived")
 ESTATE_STATUS = EstateStatus(0, 1, 2, 3, 4)
+exclude_estates = ("https://re.kufar.by/vi/minsk/kupit/kvartiru/188583912",
+                   "https://re.kufar.by/vi/minsk/kupit/kvartiru/bez-otdelki/188537606")
 
-def update_db(estates):
+def update_db(estates: list):
     log_line("INF",f"Starting db update...")
 
-    estates_urls_in_db = [estate.url for estate in get_sold_estates_for_search_url(estates[0].search_url.url)]
-    sold_estates_urls = list(set(estates_urls_in_db) - set([estate.url for estate in estates]))
-    for url in sold_estates_urls:
-        update_value('user_estate', 'notification_status', str(ESTATE_STATUS.sold), {'url':url})
+    mark_sold_estates(estates)
 
     for estate in estates:
+        if estate.url in exclude_estates : continue
         current_price = get_current_price(estate.url)
         if not current_price:
             add_estate(estate)
@@ -57,7 +58,7 @@ def get_search_urls_for_user(user_id: int):
 
 def get_sold_estates_for_search_url(url: str):
     cursor = connection.cursor()
-    query = ESTATE_SELECT_VALUES + f" JOIN user_estate ON estate.url=user_estate.url WHERE search_url=%s AND notification_status={ESTATE_STATUS.archived}"
+    query = ESTATE_SELECT_VALUES + f" JOIN user_estate ON estate.url=user_estate.url WHERE search_url=%s AND notification_status={ESTATE_STATUS.idle}"
     cursor.execute(query, (url,))
     estates_fetched = cursor.fetchall()
     estates = [Estate(*estate) for estate in estates_fetched]
@@ -82,6 +83,14 @@ def set_notification_status_archived(user_id: int, url:str):
 
 def set_notification_status_idle(user_id: int, url:str):
     update_value('user_estate', 'notification_status', str(ESTATE_STATUS.idle), {'url':url,'user_id':user_id})
+
+
+def mark_sold_estates(estates: list):
+    estates_urls_in_db = [estate.url for estate in get_sold_estates_for_search_url(estates[0].search_url.url)]
+    estates_urls_parsed = [estate.url for estate in estates]
+    sold_estates_urls = list(set(estates_urls_in_db) - set(estates_urls_parsed))
+    for url in sold_estates_urls:
+        update_value('user_estate', 'notification_status', str(ESTATE_STATUS.sold), {'url':url})
 
 
 def add_search_url_for_user(user_id: int, search_url: SearchUrl):
@@ -177,5 +186,5 @@ def where_constructor(lookup_items):
     return ("WHERE {}".format(" AND ".join(["%s=%s"] * len(fields))), god_why)
 
 
-def log_line(type:str, line:str):
+def log_line(type:str = "INF", line:str):
     sql_log.write(f"{datetime.now()} -- [{type}] -- {line}\n")
