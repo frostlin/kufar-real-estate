@@ -31,14 +31,10 @@ def update_user(user_id: int):
         print('sold')
         print(*[estate.url for estate in sold_estates],sep='\n')
         print()
-        
-        send_sold(user_id, sold_estates, url)
 
-        if not new_estates: send_message(user_id, f"Нет новых объявлений для {repr(url)}")
-        else: send_new(user_id, new_estates, url) 
-
-        if not updated_estates: send_message(user_id, f"Нет измененных объявлений для {repr(url)}")
-        else: send_updated(user_id, updated_estates, url) 
+        if sold_estates: send_sold(user_id, sold_estates, url)
+        if new_estates: send_new(user_id, new_estates, url)
+        if updated_estates: send_updated(user_id, updated_estates, url)
 
 
 def send_updated(user_id: int, estates: list[Estate], url: SearchUrl):
@@ -47,7 +43,7 @@ def send_updated(user_id: int, estates: list[Estate], url: SearchUrl):
             send_photo(user_id, f"Цена на квартиру поменялась. {estate.price_usd_old}$ -> {estate.price_usd}$\n{repr(url)}", estate) 
             set_notification_status_idle(user_id, estate.url)
         except Exception as e: 
-            send_message(user_id, f"произошла ошибка, сообщите @Frosltin: \n{e}\n{traceback.format_exc()}") 
+            send_message(user_id, f"произошла ошибка, перешлите это сообщение разработчику @Frostlin\n\nEstate: {estate.url}\n{e}\n{traceback.format_exc()}") 
             continue
 
 
@@ -57,7 +53,7 @@ def send_new(user_id:int, estates: list[Estate], url: SearchUrl):
             send_photo(user_id, f"Новое объявление о продаже\n{repr(url)}", estate)
             set_notification_status_idle(user_id, estate.url)
         except Exception as e: 
-            send_message(user_id, f"произошла ошибка, сообщите @Frostlin: \n{e}\n{traceback.format_exc()}") 
+            send_message(user_id, f"произошла ошибка, перешлите это сообщение разработчику @Frostlin\n\nEstate: {estate.url}\n{e}\n{traceback.format_exc()}") 
             continue
 
 def send_sold(user_id:int , estates: list[Estate], url: SearchUrl):
@@ -66,9 +62,8 @@ def send_sold(user_id:int , estates: list[Estate], url: SearchUrl):
             send_photo(user_id, f"Квартира продана или объявление снято:\n {repr(url)}", estate)
             set_notification_status_archived(user_id, estate.url)
         except Exception as e: 
-            send_message(user_id, f"произошла ошибка, сообщите @Frostlin: \n{e}\n{traceback.format_exc()}") 
+            send_message(user_id, f"произошла ошибка, перешлите это сообщение разработчику @Frostlin\n\nEstate: {estate.url}\n{e}\n{traceback.format_exc()}") 
             continue
-
 
 
 def send_photo(user_id, message, estate):
