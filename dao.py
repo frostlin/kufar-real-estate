@@ -16,7 +16,7 @@ from object.search_url import SearchUrl
 # DIRE NEED FOR REFACTORING
 #
 
-sql_log = open(f"{os.getcwd()}/log/connect.log", "a")
+sql_log = open(f"{os.getcwd()}/log/database.log", "a")
 connection = psycopg2.connect(host=postgres_address, port=port, user=postgres_user, password=postgres_user_password, dbname=db_name_dev)
 ESTATE_SELECT_VALUES = "SELECT estate.url, image_url, price_usd, price_usd_old, price_byn, room_count, area, address FROM estate"
 EstateStatus = namedtuple("EstateStatus", "new idle changed sold archived")
@@ -25,7 +25,7 @@ exclude_estates = ("https://re.kufar.by/vi/minsk/kupit/kvartiru/188583912",
                    "https://re.kufar.by/vi/minsk/kupit/kvartiru/bez-otdelki/188537606")
 
 def update_db(estates: list):
-    log_line("INF",f"Starting db update...")
+    log_line("INF",f"Updating db for {estates[0].search_url.url}")
 
     mark_sold_estates(estates)
 
@@ -100,7 +100,8 @@ def add_search_url_for_user(user_id: int, search_url: SearchUrl):
 
 
 def add_estate(estate: Estate): 
-    print(f"Adding new estate {estate.url}")
+    log_line("INF",f"Adding new estate {estate.url}")
+
     insert_value('estate', ('url','image_url','search_url','price_usd','price_usd_old','price_byn','room_count','area','address'), (estate.url, estate.image_url, estate.search_url.url, estate.price_usd, estate.price_usd_old, estate.price_byn, estate.room_count, estate.area, estate.address))
     user_ids = get_values('user_search_url','user_id',{'url':estate.search_url.url})
     for user_id in user_ids:
@@ -109,7 +110,8 @@ def add_estate(estate: Estate):
 
 
 def update_estate(estate: Estate, current_price: float):
-    print(f"changing {estate.url}")
+    log_line("INF",f"Changing price for {estate.url} {current_price} -> {estate.price_usd}")
+
     update_value('estate', 'price_usd_old', str(current_price), {'url': estate.url})
     update_value('estate', 'price_usd', str(estate.price_usd), {'url': estate.url})
     update_value('estate', 'price_byn', str(estate.price_byn), {'url': estate.url})
@@ -186,5 +188,5 @@ def where_constructor(lookup_items):
     return ("WHERE {}".format(" AND ".join(["%s=%s"] * len(fields))), god_why)
 
 
-def log_line(type:str = "INF", line:str):
+def log_line(type:str, line:str):
     sql_log.write(f"{datetime.now()} -- [{type}] -- {line}\n")

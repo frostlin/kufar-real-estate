@@ -10,6 +10,7 @@ from object.estate import Estate
 from object.search_url import SearchUrl
 
 def main():
+    log_line("INF",f"Starting db update")
     search_urls = get_all_search_urls()
     for url in search_urls:
         print(f"Parsing {url}")
@@ -21,6 +22,8 @@ def main():
             estates += get_estates(SearchUrl(url,"alias_placeholder"), page)
         update_db(estates)
     connection.close()
+    log_line("INF",f"Ending db update...\n\n")
+
 
 
 if __name__ == "__main__":
