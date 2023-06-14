@@ -20,16 +20,16 @@ def get_estates(search_url: SearchUrl, page: int):
     response = requests.get(search_url.url + '&cursor=' + encode_base64('{"t":"abs","f":true,"p":' + str(page) + '}'))
     webscrapper_log.write("page " + search_url.url + "\n")
     
-    cards = SoupStrainer("div", {"class": re.compile("styles_cards__(?!wrapper).*")})
-    page_only_cards = BeautifulSoup(response.text, 'lxml', parse_only=cards)
+    products_only_filter = SoupStrainer("div", {"class": re.compile("styles_cards__(?!wrapper).*")})
+    products_only = BeautifulSoup(response.text, 'lxml', parse_only=products_only_filter)
     
     products=[]
-    for a in page_only_cards.find_all("a"):
+    for a in products_only.find_all("a"):
         try:
             # strip url of arguments after '?'
             href = a.get('href').split('?')[0]
 
-            # skip adverised
+            # skip some promoted bullshit kufar added that broke this scrapper
             if "account/my_ads/published" in href:
                 continue
             if "promotion_services" in href:
@@ -48,6 +48,7 @@ def get_estates(search_url: SearchUrl, page: int):
             address = a.find("span", {"class": re.compile("styles_address.*")}).text
             room_count = int(parameters[0])
             area = float(parameters[2]) if len(parameters) > 2 else 0
+
             estate  = Estate(href, image_href, price_usd, price_usd, price_byn, room_count, area, address)
             estate.search_url = search_url
             products.append(estate)
