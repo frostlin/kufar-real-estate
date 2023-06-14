@@ -25,21 +25,25 @@ def update_user(user_id: int):
         log_line("INF",f"  Uptading {url.alias} --- {url.url}")
 
         new_estates = get_estates_for_user_notifications(user_id, url.url, ESTATE_STATUS.new)
-        log_line("INF",f"  New:\n" + '\n'.join([estate.url for estate in new_estates]))
-
-        updated_estates = get_estates_for_user_notifications(user_id, url.url, ESTATE_STATUS.changed)
-        log_line("INF",f"  Updated:\n" + '\n'.join([estate.url for estate in updated_estates]))
-        
+        updated_estates = get_estates_for_user_notifications(user_id, url.url, ESTATE_STATUS.changed) 
         sold_estates = get_estates_for_user_notifications(user_id, url.url, ESTATE_STATUS.sold)
-        log_line("INF",f"  Sold:\n" + '\n'.join([estate.url for estate in sold_estates]))
-
-        #if sold_estates: send_sold(user_id, sold_estates, url)
-        if new_estates: send_new(user_id, new_estates, url)
-        if updated_estates: send_updated(user_id, updated_estates, url)
+        #get_user_search_urls_for_estate()
+        if sold_estates: 
+            log_line("INF",f"  Sold:")
+            for estate in sold_estates: log_line("INF",f"  {estate.url}")
+            send_sold(user_id, sold_estates, url)
+        if new_estates: 
+            log_line("INF",f"  New:")
+            for estate in new_estates: log_line("INF",f"  {estate.url}")
+            send_new(user_id, new_estates, url)
+        if updated_estates:
+            log_line("INF",f"  Updated:")
+            for estate in updated_estates: log_line("INF",f"  {estate.url}")
+            send_updated(user_id, updated_estates, url)
 
 
 def send_updated(user_id: int, estates: list[Estate], url: SearchUrl):
-    log_line("INF",f"  Sending updated")
+    #log_line("INF",f"  Sending updated")
     for estate in estates:
         try:
             send_photo(user_id, f"Цена на квартиру поменялась. {estate.price_usd_old}$ -> {estate.price_usd}$\n{repr(url)}", estate) 
@@ -47,11 +51,11 @@ def send_updated(user_id: int, estates: list[Estate], url: SearchUrl):
         except Exception as e: 
             send_message(user_id, f"произошла ошибка, перешлите это сообщение разработчику @Frostlin\n\nEstate: {estate.url}\n{e}\n{traceback.format_exc()}") 
             continue
-    log_line("INF",f"  Sent updated")
+    #log_line("INF",f"  Sent updated")
 
 
 def send_new(user_id:int, estates: list[Estate], url: SearchUrl):
-    log_line("INF",f"  Sending new")
+    #log_line("INF",f"  Sending new")
     for estate in estates:
         try:
             send_photo(user_id, f"Новое объявление о продаже\n{repr(url)}", estate)
@@ -59,10 +63,10 @@ def send_new(user_id:int, estates: list[Estate], url: SearchUrl):
         except Exception as e: 
             send_message(user_id, f"произошла ошибка, перешлите это сообщение разработчику @Frostlin\n\nEstate: {estate.url}\n{e}\n{traceback.format_exc()}") 
             continue
-    log_line("INF",f"  Sent new")
+    #log_line("INF",f"  Sent new")
 
 def send_sold(user_id:int , estates: list[Estate], url: SearchUrl):
-    log_line("INF",f"  Sending sold")
+    #log_line("INF",f"  Sending sold")
     for estate in estates:
         try:
             send_photo(user_id, f"Квартира продана или объявление снято:\n {repr(url)}", estate)
@@ -70,7 +74,7 @@ def send_sold(user_id:int , estates: list[Estate], url: SearchUrl):
         except Exception as e: 
             send_message(user_id, f"произошла ошибка, перешлите это сообщение разработчику @Frostlin\n\nEstate: {estate.url}\n{e}\n{traceback.format_exc()}") 
             continue
-    log_line("INF",f"  Sent sold")
+    #log_line("INF",f"  Sent sold")
 
 
 def send_photo(user_id, message, estate):

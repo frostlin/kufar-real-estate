@@ -100,7 +100,7 @@ def add_search_url_for_user(user_id: int, search_url: SearchUrl):
 
 
 def add_estate(estate: Estate): 
-    log_line("INF",f"Adding new estate {estate.url}")
+    log_line("DB ",f"Adding new estate {estate.url}")
 
     insert_value('estate', ('url','image_url','search_url','price_usd','price_usd_old','price_byn','room_count','area','address'), (estate.url, estate.image_url, estate.search_url.url, estate.price_usd, estate.price_usd_old, estate.price_byn, estate.room_count, estate.area, estate.address))
     user_ids = get_values('user_search_url','user_id',{'url':estate.search_url.url})
@@ -110,7 +110,7 @@ def add_estate(estate: Estate):
 
 
 def update_estate(estate: Estate, current_price: float):
-    log_line("INF",f"Changing price for {estate.url} {current_price} -> {estate.price_usd}")
+    log_line("DB ",f"Changing price for {estate.url} {current_price} -> {estate.price_usd}")
 
     update_value('estate', 'price_usd_old', str(current_price), {'url': estate.url})
     update_value('estate', 'price_usd', str(estate.price_usd), {'url': estate.url})
@@ -135,7 +135,7 @@ def insert_value(table:str, fields:tuple, values:tuple, lookup_items: dict = {})
     if check_if_exists(table,lookup_items):
         log_line("WRN", f"'{table}' with keys '{lookup_items}' already exists, skipping.....\n")
         return False
-    log_line("INF",f"Inserting to '{table}' fields '{', '.join(fields)}' with values'{values}' where '{lookup_items}'\n")
+    log_line("DB ",f"Inserting to '{table}' fields '{', '.join(fields)}' with values'{values}' where '{lookup_items}'\n")
 
     query = "INSERT INTO %s(%s) VALUES (" + ','.join(["%s"] * len(values)) + ")"
     cursor = connection.cursor()  
@@ -168,7 +168,7 @@ def get_values(table:str, select_column:str,lookup_items: dict = {}):
 
 
 def update_value(table: str, field_to_change: str, value_to_change: str, lookup_items):
-    log_line("INF",f"Updating table '{table}' setting '{field_to_change}' to '{value_to_change}' where '{lookup_items}'")
+    log_line("DB ",f"Updating table '{table}' setting '{field_to_change}' to '{value_to_change}' where '{lookup_items}'")
     constructed_where = where_constructor(lookup_items)
     query = f"UPDATE %s SET %s = %s {constructed_where[0]}"
 
