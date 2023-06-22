@@ -15,41 +15,31 @@ from object.search_url import SearchUrl
 
 def get_estates(search_url: SearchUrl, page: int):   
     
-    response = requests.get(search_url.url + '&cursor=' + encode_base64('{"t":"abs","f":true,"p":' + str(page) + '}'))
-    webscrapper_log.write("page " + search_url.url + "\n")
-    
-    products_only_filter = SoupStrainer("div", {"class": re.compile("styles_cards__(?!wrapper).*")})
-    products_only = BeautifulSoup(response.text, 'lxml', parse_only=products_only_filter)
-    
+    #getting response
     products=[]
-    for a in products_only.find_all("a"):
+    #get page count from response
+    for i in range(1,page_count + 1):
+        # cycle through estates on each page
         try:
-            # strip url of arguments after '?'
-            href = a.get('href').split('?')[0]
-
-            # skip some promoted bullshit kufar added that broke this scrapper
-            if "account/my_ads/published" in href:
-                continue
-            if "promotion_services" in href:
-                continue
             
-            # get image from card or insert placeholder image
-            image = a.find("div", {"data-testid": re.compile("segment-https.*")})
-            image_href = image.get("data-testid").split('segment-')[1] if image is not None else "https://www.pngmart.com/files/22/Pepe-Sad-Download-PNG-Image.png"
+           # populate estate and append to list
+           
+           # image = a.find("div", {"data-testid": re.compile("segment-https.*")})
+           # image_href = image.get("data-testid").split('segment-')[1] if image is not None else "https://www.pngmart.com/files/22/Pepe-Sad-Download-PNG-Image.png"
 
-            # get prices block, populate price_usd and price_byn
-            prices = a.find("div", {"class": re.compile("styles_price.*")}).find_all("span")
-            price_usd = int(prices[1].text.split('$')[0].replace(" ","")) if prices[0].text not in ("Договорная","Бесплатно") else 0   
-            price_byn = int(prices[0].text.split('р')[0].replace(" ","")) if prices[0].text not in ("Договорная","Бесплатно") else 0
-            
-            parameters = a.find("div", {"class": re.compile("styles_parameters.*")}).string.split(' ')
-            address = a.find("span", {"class": re.compile("styles_address.*")}).text
-            room_count = int(parameters[0])
-            area = float(parameters[2]) if len(parameters) > 2 else 0
+           # # get prices block, populate price_usd and price_byn
+           # prices = a.find("div", {"class": re.compile("styles_price.*")}).find_all("span")
+           # price_usd = int(prices[1].text.split('$')[0].replace(" ","")) if prices[0].text not in ("Договорная","Бесплатно") else 0   
+           # price_byn = int(prices[0].text.split('р')[0].replace(" ","")) if prices[0].text not in ("Договорная","Бесплатно") else 0
+           # 
+           # parameters = a.find("div", {"class": re.compile("styles_parameters.*")}).string.split(' ')
+           # address = a.find("span", {"class": re.compile("styles_address.*")}).text
+           # room_count = int(parameters[0])
+           # area = float(parameters[2]) if len(parameters) > 2 else 0
 
-            estate  = Estate(href, image_href, price_usd, price_usd, price_byn, room_count, area, address)
-            estate.search_url = search_url
-            products.append(estate)
+           # estate  = Estate(href, image_href, price_usd, price_usd, price_byn, room_count, area, address)
+           # estate.search_url = search_url
+           # products.append(estate)
         except Exception as e:
             print("ERROR on estate {}\n{}".format(href,e))
             continue
@@ -87,7 +77,7 @@ def get_response(partial_params):
     print(params)
     return requests.get('https://api.kufar.by/search-api/v1/search/rendered-paginated', params=params, headers=headers)
 
-def get_params():
+def for_testing_api_calls():
     while True:
         choice = input("""Input parameters:
         1. Condition
@@ -133,4 +123,4 @@ def get_params():
 
 
 if __name__ == "__main__":
-    get_params()
+    for_testing_api_calls()
